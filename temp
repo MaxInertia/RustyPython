@@ -1,0 +1,67 @@
+'''Example Rust Struct Wrapper'''
+class apple():
+    def __init__(self, lib, ptr):
+        # Store reference to underlying pointer
+        self.ptr = ptr
+        self.lib = lib
+        # Hold onto the function for freeing this structures memory
+        #self._free = lib.free_apple
+        # Populate self with functions on that structure from the library
+        self._get_float = lib.get_float
+        self._set_float = lib.set_float
+        #self._get_int = lib.get_int
+        #self._set_int = lib.set_int
+        #self._get_uint = lib.get_uint
+        #self._set_uint = lib.set_uint
+            #self._display = lib.display
+
+    def set_ptr(self, ptr):
+        self.ptr = ptr
+
+    # Convenience methods for accessing rust functions
+    def get_float(self):
+        self.lib.get_float(self.ptr)
+
+    def set_float(self, v):
+        self.lib.set_float(self.ptr, v)
+
+    #def get_int(self):
+    #    self.lib.get_int(self.ptr)
+
+    #def set_int(self, v):
+    #    self.lib.set_int(self.ptr, v)
+
+    #def get_uint(self):
+    #    self.lib.get_uint(self.ptr)
+
+    #def set_uint(self, v):
+    #    self.lib.set_uint(self.ptr, v)
+
+    def display(self):
+        self.lib.display(self.ptr)
+
+    def free(self):
+        self._free(self.ptr)
+
+
+header_apple = """
+    typedef struct {
+        float       a_float;
+        int         an_int;
+        uint32_t    a_uint32;
+    } apple;
+
+    apple new_apple();
+    void free_apple(apple);
+
+    void set_float(apple, float);
+    float get_float(apple);
+
+    void set_int(apple, int);
+    int get_int(apple);
+
+    void set_uint(apple, uint32_t);
+    uint32_t get_uint(apple);
+
+    void display(apple);
+"""
