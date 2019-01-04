@@ -12,7 +12,10 @@ class RustLib():
 rust = RustLib(
     "target/debug/rusty_python.dll",
      """
-        typedef void* heapy;
+        typedef struct {
+            float width;
+            float height;
+        } heapy;
 
         heapy new_heapy();
 
@@ -23,42 +26,44 @@ rust = RustLib(
 
         void set_width(heapy, float);
         void set_height(heapy, float);
+
+        void display(heapy);
     """)
 
-#  typedef struct {
-#      float width;
-#      float height;
-#  } heapy_t;
+# Alternatively could use an opaque pointer to the struct 'heapy'
+# typedef void* heapy;
 
-
-print("ffi: " + str(rust.ffi))
+def display(h):
+    print("Python: " + str(h))
 
 h = rust.fn().new_heapy()
 #rust_struct_ref.speak()
 #ffi.speak(heapy)
 
-print("\nPre-Set")
-print("heapy: " + str(h))
-print("width: " + str(rust.fn().get_width(h)))
-print("height: " + str(rust.fn().get_height(h)))
+print("\nPre-set")
+rust.fn().display(h)
+display(h)
 
-print("\nPost-Set")
+print("\nPost-set")
 rust.fn().set_width(h, 3.0)
 rust.fn().set_height(h, 4.0)
-print("heapy: " + str(h))
-print("width: " + str(rust.fn().get_width(h)))
-print("height: " + str(rust.fn().get_height(h)))
+rust.fn().display(h)
+display(h)
 
+# This hangs and crashes
+#print("\nPython.set")
+#h.width = 124.0;
+#h.height = 42.7;
+#print("width: " + str(rust.fn().get_width(h)))
+#print("height: " + str(rust.fn().get_height(h)))
 rust.fn().free_heapy(h)
 
-print("\nPost-Free")
-print("heapy: " + str(h))
-print("width: " + str(rust.fn().get_width(h)))
-print("height: " + str(rust.fn().get_height(h)))
+print("\nPost-free")
+rust.fn().display(h)
+display(h)
 
-print("\nAttemping Set")
+print("\nAttemping Post-free set")
 rust.fn().set_width(h, 13.0)
 rust.fn().set_height(h, 7.0)
-print("heapy: " + str(h))
-print("width: " + str(rust.fn().get_width(h)))
-print("height: " + str(rust.fn().get_height(h)))
+rust.fn().display(h)
+display(h)
