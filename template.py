@@ -1,22 +1,25 @@
 from cffi import FFI
 
-# The C-equivalent of the Rust struct and function types.
-header_apple = """
-    typedef struct {
-        float       f;
-        int         i;
-    } apple;
+# The C-equivalent of the Rust function types.
+header_PySync = """
+    typedef void* PySync;
 
-    apple new_apple();
-    void free_apple(apple);
+    PySync new_PySync();
+    void free_PySync(PySync);
 
-    void display(apple);
+    void display(PySync);
 
-    void set_f(apple, float);
-    float get_f(apple);
+    void set_d(PySync, double);
+    double get_d(PySync);
 
-    void set_i(apple, int);
-    int get_i(apple);
+    void set_f(PySync, float);
+    float get_f(PySync);
+
+    void set_i(PySync, int);
+    int get_i(PySync);
+
+    void set_u(PySync, uint32_t);
+    uint32_t get_u(PySync);
 """
 
 class RustLib():
@@ -32,20 +35,19 @@ class RustLib():
     # Rust structures exposed by the library
 
     # For when initialization code is defined in Rust
-    def build_apple(self):
-        ptr = self.lib.new_apple()
-        return Apple(lib_in = self.lib, ptr_in = ptr)
+    def build_PySync(self):
+        ptr = self.lib.new_PySync()
+        return PySync(lib_in = self.lib, ptr_in = ptr)
 
     # For when initialization code is defined in Python
-    def new_apple(self):
-        ptr = self.ffi.new("apple *")
-        assert(ptr != self.ffi.NULL)
-        return Apple(lib_in = self.lib, ptr_in = ptr)
-
-    # additional structs here...
+    # NOT WORKING. See description in function: wrapped
+    #def new_PySync(self):
+    #    ptr = self.ffi.new("PySync")
+    #    assert(ptr != self.ffi.NULL)
+    #    return PySync(lib_in = self.lib, ptr_in = ptr)
 
 '''Example Rust Struct Wrapper'''
-class Apple():
+class PySync():
     def __init__(self, lib_in, ptr_in):
         self.ptr = ptr_in  # Store pointer being wrapped and
         self._lib = lib_in # library for access to functions
@@ -57,17 +59,30 @@ class Apple():
         self._lib.free(self.ptr)
 
     # Convenience methods for accessing rust functions
-    def get_float(self):
+
+    def get_d(self):
+        return self._lib.get_d(self.ptr)
+
+    def set_d(self, v):
+        self._lib.set_d(self.ptr, v)
+
+    def get_f(self):
         return self._lib.get_f(self.ptr)
 
-    def set_float(self, v):
+    def set_f(self, v):
         self._lib.set_f(self.ptr, v)
 
-    def get_int(self):
+    def get_i(self):
         return self._lib.get_i(self.ptr)
 
-    def set_int(self, v):
+    def set_i(self, v):
         self._lib.set_i(self.ptr, v)
+
+    def get_u(self):
+        return self._lib.get_u(self.ptr)
+
+    def set_u(self, v):
+        self._lib.set_u(self.ptr, v)
 
 #   ============
 #   Load Library
@@ -77,8 +92,8 @@ class Apple():
 #   Windows: *.dll
 #   Linux: *.so
 win_lib = "target/debug/rusty_python.dll"
-#headers = header_apple # add additional headers here...
-rust = RustLib(lib_in = win_lib, headers_in = header_apple)
+#headers = header_PySync # add additional headers here...
+rust = RustLib(lib_in = win_lib, headers_in = header_PySync)
 
 #   =================
 #   Application Logic
@@ -87,56 +102,55 @@ rust = RustLib(lib_in = win_lib, headers_in = header_apple)
 # To identify which language a print
 # statement was written at runtime
 def printPy(msg):
-    print("Python: " + msg)
+    print("Py: " + msg)
 
 def unwrapped():
-    sa = rust.fn().new_apple()
+    sa = rust.fn().new_PySync()
     printPy("ptr = " + str(sa))
 
-    # Check initial value
-    f = rust.fn().get_f(sa)
-    printPy("ptr.f = (" + str(f) +") <- initial value")
-    # Change, confirm it changed
-    rust.fn().set_f(sa, 0.25)
-    f = rust.fn().get_f(sa)
-    assert(f == 0.25)
-    printPy("ptr.f = (" + str(f) + ") <- should be 0.25")
+    def test_set_and_get(getter, setter, field, num):
+        setter(sa, num)
+        x = getter(sa)
+        printPy("ptr." + field + " = (" + str(x) + ") <- should be " + str(num))
+        assert(x == num)
 
-    # Check initial value
-    i = rust.fn().get_i(sa)
-    printPy("ptr.i = (" + str(i) +") <- initial value")
-    # Change, confirm it changed
-    rust.fn().set_i(sa, 9)
-    i = rust.fn().get_i(sa)
-    assert(i == 9)
-    printPy("ptr.i = (" + str(i) + ") <- should be 9")
+    test_set_and_get(rust.fn().get_d, rust.fn().set_d, "f2", 3.25)
+    test_set_and_get(rust.fn().get_f, rust.fn().set_f, "f", 3.25)
+    test_set_and_get(rust.fn().get_i, rust.fn().set_i, "i", -9)
+    test_set_and_get(rust.fn().get_u, rust.fn().set_u, "u", 13)
 
     rust.fn().display(sa)
 
 def wrapped():
-    sa = rust.build_apple();
-    #sa = rust.new_apple();
+    sa = rust.build_PySync();
+
+    #sa = rust.new_PySync();
+    # ^ This fails when using `typedef void* PySync` due to unknown ctype size
+    #   and fails when using explicit struct layout in both of the following:
+    #       1. ffi.new("PySync") due to
+    #           "TypeError: expected a pointer or array ctype, got 'PySync'"
+    #       2. ffi.new("PySync *") due to
+    #           "TypeError: initializer for ctype 'PySync' must be a list or
+    #            tuple or dict or struct-cdata, not cdata 'PySync *'"
+
     printPy("sa = " + str(sa))
     printPy("sa.ptr = " + str(sa.ptr))
 
-    f = sa.get_float()
-    printPy("sa.f = " + str(f) + " <- initial value")
-    sa.set_float(0.25)
-    f = sa.get_float()
-    printPy("sa.f = " + str(f) + " <- should be 0.25")
-    assert(f == 0.25)
+    def test_set_and_get(getter, setter, field, num):
+        setter(num)
+        x = getter()
+        printPy("ptr." + field + " = (" + str(x) + ") <- should be " + str(num))
+        assert(x == num)
 
-    i = sa.get_int()
-    printPy("sa.i = " + str(i) + " <- initial value")
-    sa.set_int(9)
-    i = sa.get_int()
-    printPy("sa.i = " + str(i) + " <- should be 9")
-    assert(i == 9)
+    test_set_and_get(sa.get_d, sa.set_d, "d", 3.25)
+    test_set_and_get(sa.get_f, sa.set_f, "f", 3.25)
+    test_set_and_get(sa.get_i, sa.set_i, "i", -9)
+    test_set_and_get(sa.get_u, sa.set_u, "u", 13)
 
     sa.display()
 
-print("\nUN-WRAPPED:")
-unwrapped()
-
 print("\nWRAPPED:")
 wrapped()
+
+print("\nUN-WRAPPED:")
+unwrapped()
